@@ -1,24 +1,28 @@
 {
   "name": "veroptima-qa-code-vue",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "description": "Standalone public-MIT Vue (vue-compiler) code-enumerator backend — a parser-driven (@vue/compiler-sfc + @babel/parser + pug-lexer/pug-parser) RAW branch enumerator for .vue SFCs (HTML + Pug templates, element-plus + vee-validate). Emits RawBranch (NO id) against the PUBLIC @qa-expert/code-enumerator-spi ONLY — zero core model IP.",
   "license": "MIT",
   "scripts": {
     "typecheck": "bun x tsc --noEmit",
     "test": "bun test"
   },
-  "peerDependencies": {
-    "@qa-expert/code-enumerator-spi": "^0.1.0"
-  },
-  "dependencies": {
+  "devDependencies": {
     "@vue/compiler-sfc": "^3.5.13",
     "@babel/parser": "^8.0.0",
     "@babel/traverse": "^8.0.0",
     "@types/babel__traverse": "^7.28.0",
     "pug-lexer": "^5.0.1",
     "pug-parser": "^6.0.0",
-    "zod": "^4.4.3"
-  }
+    "zod": "^4.4.3",
+    "@qa-expert/code-enumerator-spi": "^0.1.0"
+  },
+  "files": [
+    "dist",
+    "code-enumerator-plugin.json",
+    "LICENSE",
+    "README.md"
+  ]
 }

@@ -63,8 +63,8 @@
 // element get distinct paths (different directive suffix). Script paths are
 // `script[N]/<construct>[ordinal]` where the ordinal is the construct's rank in
 // source-start order within that script, e.g. `script[1]/beforeEach[0]/if[0]`.
-// No two distinct AST nodes share a node_path — so `branchId` (which folds
-// node_path into its key) never fuses distinct branches.
+// No two distinct AST nodes share a node_path — so the HOST's identity key
+// (which folds node_path in) never fuses distinct branches.
 
 import { parse as parseSfc } from "@vue/compiler-sfc";
 import { parse as parseBabel } from "@babel/parser";
@@ -78,18 +78,13 @@ const traverse = ((_traverse as unknown as { default?: typeof _traverse }).defau
   _traverse) as typeof _traverse;
 
 import {
-  branchId,
-  type Branch,
-  type BranchKind,
-} from "@qa-expert/feature-model";
-
-import {
-  assertNodePathsPopulated,
-  sortBranchesById,
   type BranchEnumerator,
+  type BranchKind,
   type CodeSource,
-  type EnumeratorResult,
-} from "@qa-expert/code-enumerator-contract";
+  type RawBranch,
+  type RawEnumeratorResult,
+  type RawProvenance,
+} from "@qa-expert/code-enumerator-spi";
 
 // ---------------------------------------------------------------------------
 // Vue compiler AST — the narrow shapes we read (kept local; the compiler types
@@ -336,7 +331,7 @@ function walkTemplate(
 // one quote pair (`unquotePug`) so the condition text matches the HTML path's
 // `exp.content`. The AST node order IS source order, so a recursive descent with
 // per-parent child ordinals is deterministic. node_path mirrors the HTML scheme:
-// `<tagChain>[childIndex]…:<suffix>` — unique per node so branchId never fuses.
+// `<tagChain>[childIndex]…:<suffix>` — unique per node so the host's id never fuses.
 // ---------------------------------------------------------------------------
 
 interface PugAttr {
@@ -568,7 +563,7 @@ function ifCallsNext(node: any): boolean {
  * Driven by `@babel/traverse` over the babel AST (TS+JSX scripts now parse). The
  * per-hit shape and the kinds are UNCHANGED from the acorn version — only the
  * parse backend and the literal-node split differ — so the node_path scheme, and
- * therefore every `branchId`, stays stable.
+ * therefore every host-side id, stays stable.
  */
 function collectScriptHits(ast: any): ScriptHit[] {
   const hits: ScriptHit[] = [];
@@ -658,28 +653,43 @@ function exprText(node: any): string {
 
 const VUE_FILE = /\.vue$/i;
 
-export interface VueEnumeratorResult extends EnumeratorResult {
+export interface VueEnumeratorResult extends RawEnumeratorResult {
   /** The completeness BACKSTOP: files whose `<script>` STILL failed to parse even
    *  with `@babel/parser` (`typescript`+`jsx`) — i.e. genuinely malformed scripts.
    *  A valid TS script does NOT land here (its branches are now captured); only a
    *  real parse failure does. Template branches for these files were still emitted;
-   *  S3's gate goes RED on a non-empty list. */
+   *  the host reads this field defensively (its gate goes RED on a non-empty list). */
   unparsedScripts: string[];
+}
+
+/** A stable, structural sort key for RAW branches — NO id at all (the host owns
+ *  identity). The plugin must emit a DETERMINISTIC order; this folds the cite +
+ *  classifier fields into one comparable string so two runs are byte-identical. */
+function branchSortKey(b: RawBranch): string {
+  const p = b.provenance;
+  return [
+    p.file,
+    String(p.line).padStart(8, "0"),
+    p.node_path ?? "",
+    p.node_kind,
+    b.kind,
+    b.condition,
+  ].join(" ");
 }
 
 function buildBranch(
   file: string,
   hit: { kind: BranchKind; condition: string; arms: string[]; line: number; endLine?: number; nodeKind: string; nodePath: string },
-): Branch {
-  const provenance = {
+): RawBranch {
+  const provenance: RawProvenance = {
     file,
     line: hit.line,
     ...(hit.endLine !== undefined ? { end_line: hit.endLine } : {}),
     node_kind: hit.nodeKind,
     node_path: hit.nodePath,
   };
+  // RAW — NO id. The host computes the branch id from (stack,kind,condition,provenance).
   return {
-    id: branchId({ stack: "vue", kind: hit.kind, condition: hit.condition, provenance }),
     stack: "vue",
     kind: hit.kind,
     condition: hit.condition,
@@ -689,7 +699,7 @@ function buildBranch(
 }
 
 function enumerate(source: CodeSource): VueEnumeratorResult {
-  const branches: Branch[] = [];
+  const branches: RawBranch[] = [];
   const unparsedScripts: string[] = [];
   let scannedFiles = 0;
 
@@ -777,15 +787,21 @@ function enumerate(source: CodeSource): VueEnumeratorResult {
     }
   }
 
-  const result: VueEnumeratorResult = {
+  // Deterministic emission order — sort by a stable structural key (NO id here;
+  // the host owns identity and re-sorts by id after lifting). A tie-break by the
+  // full key makes two runs byte-identical.
+  branches.sort((a, b) => {
+    const ka = branchSortKey(a);
+    const kb = branchSortKey(b);
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+
+  return {
     stack: "vue",
-    branches: sortBranchesById(branches),
+    branches,
     scannedFiles,
     unparsedScripts,
   };
-  // Completeness guard: a real parse always yields a node_path (A4).
-  assertNodePathsPopulated(result);
-  return result;
 }
 
 // ---------------------------------------------------------------------------

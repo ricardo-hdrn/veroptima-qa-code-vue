@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
-  "description": "Standalone public-MIT Vue (vue-compiler) code-enumerator backend — a parser-driven (@vue/compiler-sfc + @babel/parser + pug-lexer/pug-parser) branch enumerator for .vue SFCs (HTML + Pug templates, element-plus + vee-validate). Typechecks against @qa-expert/code-enumerator-contract and passes its conformance suite with zero core edits.",
+  "description": "Standalone public-MIT Vue (vue-compiler) code-enumerator backend — a parser-driven (@vue/compiler-sfc + @babel/parser + pug-lexer/pug-parser) RAW branch enumerator for .vue SFCs (HTML + Pug templates, element-plus + vee-validate). Emits RawBranch (NO id) against the PUBLIC @qa-expert/code-enumerator-spi ONLY — zero core model IP.",
   "license": "MIT",
   "scripts": {
     "typecheck": "bun x tsc --noEmit",
     "test": "bun test"
   },
   "peerDependencies": {
-    "@qa-expert/code-enumerator-contract": "^0.1.0"
+    "@qa-expert/code-enumerator-spi": "^0.1.0"
   },
   "dependencies": {
     "@vue/compiler-sfc": "^3.5.13",

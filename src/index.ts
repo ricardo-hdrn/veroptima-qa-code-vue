@@ -10,14 +10,15 @@
  * validation-rules (element-plus `:rules`/`prop` AND vee-validate
  * `defineRule`/`useField`), and router-guards (`beforeEach`/`beforeEnter` + `next()`).
  *
- * It implements `BranchEnumerator`, typechecks against
- * `@qa-expert/code-enumerator-contract`, and passes its CONFORMANCE SUITE — with
- * ZERO edits to any core/host file. The `stack` is the open string `"vue"`.
+ * It implements `BranchEnumerator` and emits RAW branches (NO id) against the
+ * PUBLIC `@qa-expert/code-enumerator-spi` ONLY — ZERO core model IP (no branch
+ * id, no id-bearing Branch, no model, no conformance suite). The HOST lifts
+ * RawBranch→Branch and computes identity. The `stack` is the open string `"vue"`.
  *
  * DETERMINISM (the load-bearing property): no clock, no Math.random, no LLM. The
- * branch SET — and so the id set — is a pure function of `source` alone, so two
- * enumerations are byte-identical (the LLM naming/classification overlay rides on
- * the emitted set AFTER, never inside `enumerate`).
+ * RAW branch SET is a pure function of `source` alone, emitted in a stable sort
+ * order, so two enumerations are byte-identical (the LLM naming/classification
+ * overlay rides on the emitted set AFTER, never inside `enumerate`).
  *
  * Author: Ricardo Gusmao / Veroptima
  * License: MIT
@@ -28,11 +29,7 @@ import {
   type CodeEnumeratorCapabilities,
   type CodeEnumeratorFactory,
   type EnumeratorConfig,
-} from "@qa-expert/code-enumerator-contract";
-import {
-  type PluginContext,
-  type SecretResolver,
-} from "@qa-expert/plugin-contract";
+} from "@qa-expert/code-enumerator-spi";
 
 import { vueEnumerator } from "./enumerator.js";
 
@@ -54,16 +51,15 @@ const capabilities = {
  * `vue-compiler` — the Vue (frontend) enumerator factory. `create()` validates
  * `config.stack === "vue"` and returns the deterministic `vueEnumerator`.
  */
-const factory: CodeEnumeratorFactory = {
+const factory = {
   family: CODE_ENUMERATOR_FAMILY,
   subkind: "vue-compiler",
   contractVersion: "0.1.0",
   capabilities,
-  async create(
-    config: EnumeratorConfig,
-    _secrets: SecretResolver,
-    _ctx: PluginContext,
-  ): Promise<BranchEnumerator> {
+  // `config`/`_secrets`/`_ctx` param types are inferred from the contextual
+  // `CodeEnumeratorFactory` type below — so this file imports NOTHING from the
+  // private host (no plugin-contract import for SecretResolver/PluginContext).
+  async create(config: EnumeratorConfig): Promise<BranchEnumerator> {
     if (config.stack !== "vue") {
       return Promise.reject(
         new Error(
@@ -73,6 +69,6 @@ const factory: CodeEnumeratorFactory = {
     }
     return vueEnumerator;
   },
-};
+} satisfies CodeEnumeratorFactory;
 
 export default factory;

@@ -1,0 +1,8 @@
+{
+  "name": "veroptima-qa-code-vue",
+  "version": "0.1.0",
+  "entry": "./src/index.ts",
+  "family": "code-enumerator",
+  "subkind": "vue-compiler",
+  "contractVersion": "0.1.0"
+}
